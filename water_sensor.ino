@@ -9,7 +9,6 @@ const char* ssid = "<SSID>";
 const char* password = "<PASSWORD>";
 
 #define BOTtoken "<TELEGRAM BOT TOKEN>" // telegram bot token
-//#define CHAT_ID "808754844"       // chat ID - insaiyancvk
 #define CHAT_ID "<TELEGRAM CHAT ID>"    // chat ID - Group ID
 
 const unsigned long BOT_MTBS = 1000;    // mean time between scan messages
@@ -59,9 +58,9 @@ void handleNewMessages(int numNewMessages)
       else if (vertical == LOW)
           answer += "Sump Status: *LOW*\n";
         
-      if(horizontal == HIGH && contactless == HIGH) 
+      if(horizontal == HIGH) 
           answer += "Tank Status: _FULL_\n";
-      else if(horizontal == LOW && contactless == LOW)
+      else if(contactless == LOW)
           answer += "Tank Status: *LOW*\n";
       else if(horizontal == LOW && contactless == HIGH)
           answer += "Tank Status: More than *LOW* but less than _FULL_\n";
@@ -174,7 +173,7 @@ void loop() {
   
   if(vertical == HIGH) {
 
-      if(horizontal == LOW && contactless == LOW) {
+      if(contactless == LOW) {
         digitalWrite(12, HIGH); // Relay HIGH
         ps = 1;
         if(pv!=ps) {
@@ -184,7 +183,7 @@ void loop() {
         }
       }
 
-      else if(horizontal == HIGH && contactless == HIGH) {
+      else if(horizontal == HIGH) {
         digitalWrite(12, LOW); // Relay LOW
         ps = 2;
         if(pv!=ps){
@@ -210,7 +209,7 @@ void loop() {
   else if(vertical == LOW) {
       digitalWrite(12, LOW); // Relay LOW
       
-      if(horizontal == LOW && contactless == LOW) {
+      if(contactless == LOW) {
         ps = 3;
         if(pv!=ps){
           if(WiFi.status() == WL_CONNECTED)
@@ -221,7 +220,7 @@ void loop() {
         }
       }
       
-      else if(horizontal == HIGH && contactless == HIGH) {
+      else if(horizontal == HIGH) {
         ps = 4;
         if(pv!=ps) {
           if(WiFi.status() == WL_CONNECTED)
