@@ -173,17 +173,7 @@ void loop() {
   
   if(vertical == HIGH) {
 
-      if(contactless == LOW) {
-        digitalWrite(12, HIGH); // Relay HIGH
-        ps = 1;
-        if(pv!=ps) {
-          if(WiFi.status() == WL_CONNECTED)
-            bot.sendMessage(CHAT_ID, "NO WATER IN TANK!!\nTurning ON the water motor\n", "");
-          pv = 1;
-        }
-      }
-
-      else if(horizontal == HIGH) {
+    if(horizontal == HIGH) {   // Full tank 
         digitalWrite(12, LOW); // Relay LOW
         ps = 2;
         if(pv!=ps){
@@ -196,7 +186,7 @@ void loop() {
         }
       }
 
-      else if(horizontal == LOW && contactless == HIGH)
+      else if(horizontal == LOW && contactless == HIGH) // Below full tank but not empty
       {
             ps = 6;
               if(pv!=ps) {
@@ -205,22 +195,24 @@ void loop() {
               pv = 6;
               }
         }
+        
+
+      else if(contactless == LOW) {   // Low water tank
+        digitalWrite(12, HIGH); // Relay HIGH
+        ps = 1;
+        if(pv!=ps) {
+          if(WiFi.status() == WL_CONNECTED)
+            bot.sendMessage(CHAT_ID, "NO WATER IN TANK!!\nTurning ON the water motor\n", "");
+          pv = 1;
+        }
+      }
+
+      
     }
   else if(vertical == LOW) {
       digitalWrite(12, LOW); // Relay LOW
-      
-      if(contactless == LOW) {
-        ps = 3;
-        if(pv!=ps){
-          if(WiFi.status() == WL_CONNECTED)
-            bot.sendMessage(CHAT_ID, "NO WATER IN TANK AND SUMP\nGet the sump filled ASAP or consider using water from the other tank\n", "");
-          else
-            initWiFi();
-          pv = 3;
-        }
-      }
-      
-      else if(horizontal == HIGH) {
+
+      if(horizontal == HIGH) {
         ps = 4;
         if(pv!=ps) {
           if(WiFi.status() == WL_CONNECTED)
@@ -228,6 +220,17 @@ void loop() {
           else
             initWiFi();
           pv = 4;
+        }
+      }
+      
+      else if(contactless == LOW) {
+        ps = 3;
+        if(pv!=ps){
+          if(WiFi.status() == WL_CONNECTED)
+            bot.sendMessage(CHAT_ID, "NO WATER IN TANK AND SUMP\nGet the sump filled ASAP or consider using water from the other tank\n", "");
+          else
+            initWiFi();
+          pv = 3;
         }
       }
 
