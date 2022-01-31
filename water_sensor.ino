@@ -2,20 +2,26 @@
 #include <WiFiClientSecure.h>
 #include <UniversalTelegramBot.h>
 #include <ArduinoJson.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
 
 // wifi credentials
 // ASSUMPTION: THE WIFI IS NEVER DOWN - nobody cares
 const char* ssid = "<SSID>";
-const char* password = "<PASSWORD>";
+const char* password = "<password>";
+const long utcOffsetInSeconds = 19800;  // UTC+5:30
 
-#define BOTtoken "<TELEGRAM BOT TOKEN>" // telegram bot token
-#define CHAT_ID "<TELEGRAM CHAT ID>"    // chat ID - Group ID
+#define BOTtoken "<token>" // telegram bot token
+#define CHAT_ID "<chat id>"    // chat ID - Group ID
 
 const unsigned long BOT_MTBS = 1000;    // mean time between scan messages
 unsigned long bot_lasttime;             // last time messages' scan has been done
 X509List cert(TELEGRAM_CERTIFICATE_ROOT);
 WiFiClientSecure client;
 UniversalTelegramBot bot(BOTtoken, client);
+
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, "asia.pool.ntp.org", utcOffsetInSeconds);
 
 int horizontal, vertical, contactless;
 int ps = 0;
@@ -40,18 +46,18 @@ void handleNewMessages(int numNewMessages)
     telegramMessage &msg = bot.messages[i];
     Serial.println("Received " + msg.text);
     if (msg.text == "/help@WaterSenseBot")
-      answer = "So you need _help_, uh? me too! use /start or /status";
+      answer = "So you need _help_, uh? me too! use /start or /status or /sense or /OFFmotor or /ONmotor";
     else if (msg.text == "/start@WaterSenseBot")
       answer = "Welcome my new friend! You are the first *" + msg.from_name + "* I've ever met";
     else if (msg.text == "/status@WaterSenseBot")
     {
       horizontal = digitalRead(4);
       vertical = digitalRead(5);
-      contactless = digitalRead(14);
+//      contactless = digitalRead(14);
     
       horizontal = !horizontal;
       vertical = !vertical;
-      contactless = !contactless;
+//      contactless = !contactless;
 
       if(vertical == HIGH)
           answer += "Sump Status: _ENOUGH_\n";
@@ -60,16 +66,61 @@ void handleNewMessages(int numNewMessages)
         
       if(horizontal == HIGH) 
           answer += "Tank Status: _FULL_\n";
-      else if(contactless == LOW)
-          answer += "Tank Status: *LOW*\n";
-      else if(horizontal == LOW && contactless == HIGH)
-          answer += "Tank Status: More than *LOW* but less than _FULL_\n";
+//      else if(contactless == LOW)
+//          answer += "Tank Status: *LOW*\n";
+//      else if(horizontal == LOW && contactless == HIGH)
+//          answer += "Tank Status: More than *LOW* but less than _FULL_\n";
       
       if(digitalRead(12) == HIGH)
           answer += "Motor Status: *ON*\n";
       else if(digitalRead(12) == LOW)
           answer += "Motor Status: _OFF_\n";
       }
+      
+      else if (msg.text == "/sense@WaterSenseBot") 
+      {
+        horizontal = digitalRead(4);
+        vertical = digitalRead(5);
+//        contactless = digitalRead(14);
+      
+        horizontal = !horizontal;
+        vertical = !vertical;
+//        contactless = !contactless;
+
+        if(horizontal == 0)
+          answer += "\nHorizontal Switch: LOW";
+        else
+          answer += "\nHorizontal Switch: HIGH";
+
+        if(vertical == 0)
+          answer += "\nVertical Switch: LOW";
+        else
+          answer += "\nVertical Switch: HIGH";
+
+//        if(contactless == 0)
+//          answer += "\nContactless sensor: LOW";
+//        else
+//          answer += "\nContactless sensor: HIGH";
+
+        if(digitalRead(12) == 0)
+          answer += "\nRelay: LOW";
+        else
+          answer += "\nRelay: HIGH";
+        
+        }
+
+    else if (msg.text == "/OFFmotor@WaterSenseBot")
+    {
+      answer += "Command received.\nTurning OFF the motor";
+      digitalWrite(12, LOW); // Relay LOW
+    }
+
+    else if (msg.text == "/ONmotor@WaterSenseBot")
+    {
+      answer += "Command received.\nTurning ON the motor";
+      digitalWrite(12, HIGH); // Relay HIGH
+      }
+    
     else
       answer = "Say what? _"+msg.text+"_";
 
@@ -83,7 +134,10 @@ void bot_setup()
   const String commands = F("["
                             "{\"command\":\"help\",  \"description\":\"Get bot usage help\"},"
                             "{\"command\":\"start\", \"description\":\"Message sent when you open a chat with a bot\"},"
-                            "{\"command\":\"status\",\"description\":\"Answer device current status\"}" // no comma on last command
+                            "{\"command\":\"status\",\"description\":\"Answer device current status\"},"
+                            "{\"command\":\"sense\",\"description\":\"Get the state of each sensor\"},"
+                            "{\"command\":\"OFFmotor\",\"description\":\"Set relay to LOW\"},"
+                            "{\"command\":\"ONmotor\",\"description\":\"Set relay to HIGH\"}" // no comma on last command
                             "]");
   bot.setMyCommands(commands);
 }
@@ -122,7 +176,7 @@ void setup() {
   }
   pinMode(4, INPUT_PULLUP);   //D2 - Horizontal water switch
   pinMode(5, INPUT_PULLUP);   //D1 - Vertical water switch
-  pinMode(14,INPUT_PULLUP);   //D5 - ContactLess sensor
+//  pinMode(14,INPUT_PULLUP);   //D5 - ContactLess sensor
   pinMode(12, OUTPUT);        // D6 - Relay Signal
 
   Serial.print("Retrieving time: ");
@@ -136,10 +190,13 @@ void setup() {
   Serial.println(now);
 
   bot_setup();
+  timeClient.begin();
 }
 
 void loop() {
 
+  timeClient.update();
+  
   if (millis() - bot_lasttime > BOT_MTBS)
   {
     int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
@@ -156,11 +213,11 @@ void loop() {
   
   horizontal = digitalRead(4);
   vertical = digitalRead(5);
-  contactless = digitalRead(14);
+//  contactless = digitalRead(14);
   
   horizontal = !horizontal;
   vertical = !vertical;
-  contactless = !contactless;
+//  contactless = !contactless;
   
 //  Serial.println();
 //  Serial.print("\tHorizontal switch: ");
@@ -185,27 +242,41 @@ void loop() {
           pv = 2;
         }
       }
+//
+//      else if(horizontal == LOW && contactless == HIGH) // Below full tank but not empty
+//      {
+//            ps = 6;
+//              if(pv!=ps) {
+//                if(WiFi.status() == WL_CONNECTED)
+//                  bot.sendMessage(CHAT_ID, "There's enough water in tank and sump\n", "");
+//              pv = 6;
+//              }
+//        }
 
-      else if(horizontal == LOW && contactless == HIGH) // Below full tank but not empty
+     else if(timeClient.getHours() == 4 || timeClient.getHours() == 11 || timeClient.getHours() == 20)
       {
-            ps = 6;
-              if(pv!=ps) {
-                if(WiFi.status() == WL_CONNECTED)
-                  bot.sendMessage(CHAT_ID, "There's enough water in tank and sump\n", "");
-              pv = 6;
-              }
+        if(timeClient.getMinutes()>=30 && timeClient.getMinutes()<=55)
+        {
+          digitalWrite(12, HIGH); // Relay HIGH
+          ps = 1;
+          if(pv!=ps) {
+            if(WiFi.status() == WL_CONNECTED)
+              bot.sendMessage(CHAT_ID, "The time is: "+timeClient.getFormattedTime()+"\nTurning ON the water motor\n", "");
+            pv = 1;
+            }
+          }
         }
-        
+     
 
-      else if(contactless == LOW) {   // Low water tank
-        digitalWrite(12, HIGH); // Relay HIGH
-        ps = 1;
-        if(pv!=ps) {
-          if(WiFi.status() == WL_CONNECTED)
-            bot.sendMessage(CHAT_ID, "NO WATER IN TANK!!\nTurning ON the water motor\n", "");
-          pv = 1;
-        }
-      }
+//      else if(contactless == LOW) {   // Low water tank
+//        digitalWrite(12, HIGH); // Relay HIGH
+//        ps = 1;
+//        if(pv!=ps) {
+//          if(WiFi.status() == WL_CONNECTED)
+//            bot.sendMessage(CHAT_ID, "Turning ON the water motor\n", "");
+//          pv = 1;
+//        }
+//      }
 
       
     }
@@ -223,16 +294,16 @@ void loop() {
         }
       }
       
-      else if(contactless == LOW) {
-        ps = 3;
-        if(pv!=ps){
-          if(WiFi.status() == WL_CONNECTED)
-            bot.sendMessage(CHAT_ID, "NO WATER IN TANK AND SUMP\nGet the sump filled ASAP or consider using water from the other tank\n", "");
-          else
-            initWiFi();
-          pv = 3;
-        }
-      }
+//      else if(contactless == LOW) {
+//        ps = 3;
+//        if(pv!=ps){
+//          if(WiFi.status() == WL_CONNECTED)
+//            bot.sendMessage(CHAT_ID, "NO WATER IN TANK AND SUMP\nGet the sump filled ASAP or consider using water from the other tank\n", "");
+//          else
+//            initWiFi();
+//          pv = 3;
+//        }
+//      }
 
       else {
           ps = 5;
