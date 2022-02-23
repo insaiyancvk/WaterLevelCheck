@@ -23,3 +23,24 @@ Here's my _artistic_ circuit diagram made with MS paint
 
 ![](./circuit%20with%20box.png)
 >Note: I dont own any of the images except my ✨artistic wiring and drawings✨
+
+# **Final setup**
+
+## Kitchen
+<!-- ![](./kitchen.jpg) -->
+
+<img width="600" src="./kitchen.jpg">
+
+## Tank on terrace
+<!-- ![](./tank.jpg) -->
+<img width="400" src="./tank.jpg"/>
+
+
+## Telegram bot
+<!-- ![](./telegram.jpg) -->
+<img width="300" src="./telegram.jpg">
+
+
+## Sump setup
+<!-- ![](./sump.jpeg) -->
+<img width="600" src="./kitchen.jpg">
